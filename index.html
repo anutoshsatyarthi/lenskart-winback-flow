@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lenskart Win-back Flow</title>
+<meta name="description" content="Interactive WhatsApp win-back conversation prototype - three customer personas, play it end to end.">
+<meta property="og:title" content="Lenskart Win-back Flow">
+<meta property="og:description" content="Interactive WhatsApp conversation prototype. Tap the replies to play it.">
+<meta name="theme-color" content="#0B141A">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%91%93</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600&display=swap">
+<style>
+:root{
+  --page:#0B141A; --page-2:#111B21; --edge:#1F2C33; --ink:#E9EDEF; --dim:#8696A0;
+  --pick:#00A884; --pick-soft:#103D33;
+  --wa-head:#008069; --wa-wall:#EAE1D8; --wa-wall-ink:#111B21;
+  --wa-in:#FFFFFF; --wa-out:#D8FDD2; --wa-meta:#667781; --wa-link:#027EB5;
+  --wa-rule:#E9EDEF; --wa-panel:#F0F2F5; --bezel:#05090C;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; min-height:100dvh; background:var(--page); color:var(--ink);
+  font-family:"Schibsted Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:15px; -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:18px 14px calc(18px + env(safe-area-inset-bottom));
+  gap:14px;
+}
+.masthead,.picker,.phone,.ctl,.foot{flex:0 0 auto}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--pick); outline-offset:2px; border-radius:4px}
+
+.masthead{text-align:center;display:flex;flex-direction:column;gap:5px;max-width:420px}
+.masthead h1{margin:0;font-size:17px;font-weight:600;letter-spacing:-.005em}
+.masthead p{margin:0;font-size:12.5px;color:var(--dim);line-height:1.45}
+
+.picker{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:460px}
+.pick{
+  border:1px solid var(--edge); background:var(--page-2); border-radius:999px;
+  padding:6px 13px; font-size:12.5px; color:var(--dim); line-height:1.2;
+  display:flex; flex-direction:column; align-items:center; gap:1px; transition:border-color .15s,color .15s,background .15s;
+}
+.pick b{font-weight:600;font-size:13px;color:var(--ink)}
+.pick span{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase}
+.pick:hover{border-color:#2F4048}
+.pick[aria-pressed="true"]{border-color:var(--pick);background:var(--pick-soft)}
+.pick[aria-pressed="true"] span{color:var(--pick)}
+
+.phone{
+  width:100%; max-width:400px; background:var(--bezel); border-radius:32px; padding:8px;
+  box-shadow:0 2px 10px rgba(0,0,0,.5),0 40px 80px -40px rgba(0,0,0,.9);
+  display:flex;
+}
+.screen{
+  background:var(--wa-wall); border-radius:25px; overflow:hidden;
+  display:flex; flex-direction:column; width:100%;
+  height:clamp(460px, calc(100dvh - 232px), 720px);
+}
+.wa-head{background:var(--wa-head); color:#fff; padding:10px 13px; display:flex; align-items:center; gap:10px; flex:0 0 auto}
+.wa-avatar{width:35px;height:35px;border-radius:50%;background:rgba(255,255,255,.22);display:grid;place-items:center;flex:0 0 auto}
+.wa-who{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.wa-who b{font-size:14.5px;font-weight:600}
+.wa-who i{font-style:normal;font-size:11px;opacity:.82}
+.wa-head-icons{margin-left:auto;display:flex;gap:14px;opacity:.9}
+.tray{
+  flex:0 0 auto; background:var(--wa-panel); border-bottom:1px solid var(--wa-rule);
+  padding:6px 12px; display:flex; gap:14px; align-items:center;
+  font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--wa-meta);
+}
+.tray b{color:var(--wa-head); font-size:11px}
+.thread{flex:1 1 auto; min-height:0; overflow-y:auto; padding:14px 11px 6px; display:flex; flex-direction:column; gap:3px; -webkit-overflow-scrolling:touch}
+.thread > *{flex:0 0 auto}
+.daystamp{align-self:center; background:#FFFFFFCC; color:var(--wa-meta); font-size:10.5px; padding:4px 10px; border-radius:7px; margin-bottom:8px; box-shadow:0 1px 1px rgba(11,20,26,.08); text-align:center}
+.msg{max-width:84%; border-radius:8px; padding:6px 9px 5px; font-size:13.8px; line-height:1.42; color:var(--wa-wall-ink); box-shadow:0 1px 1px rgba(11,20,26,.13); animation:pop .22s ease both}
+@keyframes pop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.msg.in{align-self:flex-start; background:var(--wa-in); border-top-left-radius:2px}
+.msg.out{align-self:flex-end; background:var(--wa-out); border-top-right-radius:2px}
+.msg .time{display:block; text-align:right; font-size:10px; color:var(--wa-meta); margin-top:1px}
+.msg.out .time::after{content:" \2713\2713"; color:#53BDEB}
+.tag-tpl{align-self:flex-start; font-family:"IBM Plex Mono",monospace; font-size:9px; letter-spacing:.09em; text-transform:uppercase; color:var(--wa-meta); background:#FFFFFFA8; padding:2px 7px; border-radius:4px; margin:4px 0 2px}
+.grp{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
+.btns{display:flex;flex-direction:column;gap:2px;max-width:84%;align-self:flex-start;margin-bottom:8px}
+.qb{background:var(--wa-in); color:var(--wa-link); text-align:center; padding:9px 8px; border-radius:8px; font-size:13.6px; font-weight:500; box-shadow:0 1px 1px rgba(11,20,26,.13); animation:pop .22s ease both}
+.qb:hover{filter:brightness(.965)}
+.qb:disabled{opacity:.42; cursor:default}
+.listbox{background:var(--wa-in);border-radius:8px;box-shadow:0 1px 1px rgba(11,20,26,.13);overflow:hidden;max-width:84%;align-self:flex-start;margin-bottom:8px}
+.listbox .lb-head{padding:7px 11px 6px;font-size:11px;color:var(--wa-meta);border-bottom:1px solid var(--wa-rule);font-family:"IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase}
+.lb-row{display:block;width:100%;text-align:left;padding:10px 11px;font-size:13.6px;color:var(--wa-wall-ink);border-bottom:1px solid var(--wa-rule)}
+.lb-row:last-child{border-bottom:0}
+.lb-row:hover{background:var(--wa-panel)}
+.lb-row::after{content:"\203A";float:right;color:var(--wa-meta)}
+.typing{align-self:flex-start;background:var(--wa-in);border-radius:8px;border-top-left-radius:2px;padding:10px 12px;display:flex;gap:4px;box-shadow:0 1px 1px rgba(11,20,26,.13);margin-bottom:7px}
+.typing i{width:6px;height:6px;border-radius:50%;background:#9AA6AE;animation:blip 1.1s infinite}
+.typing i:nth-child(2){animation-delay:.18s}.typing i:nth-child(3){animation-delay:.36s}
+@keyframes blip{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.photo{width:190px;max-width:100%;border-radius:6px;overflow:hidden;display:block;background:#CBD3D9}
+.photo svg{display:block;width:100%;height:auto}
+.msg.media{padding:4px 4px 3px}
+.cap{font-size:12.5px;padding:4px 5px 0}
+.cards{display:flex;gap:8px;overflow-x:auto;padding:2px 1px 8px;margin-bottom:6px;align-self:flex-start;max-width:100%}
+.card{flex:0 0 174px;background:var(--wa-in);border-radius:9px;box-shadow:0 1px 2px rgba(11,20,26,.16);overflow:hidden;display:flex;flex-direction:column}
+.card .shot{background:var(--wa-panel);padding:10px 8px 6px}
+.card .shot svg{display:block;width:100%;height:auto}
+.card .body{padding:7px 9px 9px;display:flex;flex-direction:column;gap:3px;flex:1}
+.card .pn{font-size:12.6px;font-weight:600;color:var(--wa-wall-ink);line-height:1.25}
+.card .why{font-size:10.5px;color:var(--wa-head);font-weight:600}
+.card .pr{font-size:13px;color:var(--wa-wall-ink);font-variant-numeric:tabular-nums}
+.card .pr s{color:var(--wa-meta);font-size:11px;margin-left:4px}
+.card .note{font-size:10px;color:var(--wa-meta)}
+.card .acts{display:flex;border-top:1px solid var(--wa-rule);margin-top:auto}
+.card .acts button{flex:1;padding:8px 2px;font-size:11.5px;font-weight:600;color:var(--wa-link)}
+.card .acts button+button{border-left:1px solid var(--wa-rule)}
+.card .acts button:hover{background:var(--wa-panel)}
+.card .acts button.done{color:var(--wa-meta)}
+.composer{flex:0 0 auto;background:var(--wa-panel);padding:8px 10px;display:flex;gap:8px;align-items:center;border-top:1px solid var(--wa-rule)}
+.cbox{flex:1;background:var(--wa-in);border-radius:20px;padding:8px 13px;display:flex;align-items:center;min-width:0}
+.cbox input{flex:1;border:0;outline:0;background:none;font:inherit;font-size:16px;color:var(--wa-wall-ink);min-width:0}
+.cbox input::placeholder{color:var(--wa-meta);font-size:13.6px}
+.cbox.locked{opacity:.68}
+.send{width:38px;height:38px;border-radius:50%;background:var(--wa-head);display:grid;place-items:center;flex:0 0 auto}
+.send:disabled{opacity:.4;cursor:default}
+.upload-cue{flex:1;display:flex;gap:7px;align-items:center;justify-content:center;background:var(--wa-in);border:1px dashed var(--wa-head);border-radius:20px;padding:8px 12px;color:var(--wa-head);font-size:13px;font-weight:600}
+.upload-cue:hover{background:#E7F3EF}
+.ctl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.ghost{border:1px solid var(--edge);background:var(--page-2);border-radius:5px;padding:6px 13px;font-size:11px;color:var(--dim);font-family:"IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase}
+.ghost:hover{border-color:var(--pick);color:var(--pick)}
+.foot{font-size:11px;color:var(--dim);text-align:center;max-width:420px;line-height:1.5}
+@media (prefers-reduced-motion:reduce){.msg,.qb{animation:none}.typing i{animation:none}}
+@media (max-width:520px){
+  body{padding:12px 10px calc(12px + env(safe-area-inset-bottom));gap:10px}
+  .masthead h1{font-size:15.5px}
+  .masthead p{display:none}
+  .phone{padding:0;border-radius:0;background:none;box-shadow:none;max-width:100%}
+  .screen{border-radius:14px;height:clamp(400px, calc(100dvh - 160px), 900px)}
+  .pick{padding:5px 11px}
+  .pick span{display:none}
+}
+</style>
+</head>
+<body>
+<div class="masthead">
+  <h1>Lenskart win-back &mdash; WhatsApp flow</h1>
+  <p>A two-way conversation that restarts after a store visit ended without a purchase. Pick a customer, then tap the replies.</p>
+</div>
+
+<div class="picker" id="picker"></div>
+
+<div class="phone">
+  <div class="screen">
+    <div class="wa-head">
+      <div class="wa-avatar" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7">
+          <circle cx="7" cy="13" r="4"/><circle cx="17" cy="13" r="4"/><path d="M11 13h2M3 11l1.5-3M21 11l-1.5-3"/>
+        </svg>
+      </div>
+      <div class="wa-who"><b>Lenskart</b><i id="waStatus">online</i></div>
+      <div class="wa-head-icons" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 3v-9z"/></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.6 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.4 11.4 0 0 0 .6 3.6 1 1 0 0 1-.25 1z"/></svg>
+      </div>
+    </div>
+    <div class="tray">
+      <span>Cart <b id="cartN">0</b></span>
+      <span>Wishlist <b id="wishN">0</b></span>
+      <span id="sessionTag" style="margin-left:auto">session open</span>
+    </div>
+    <div class="thread" id="thread" role="log" aria-live="polite" aria-label="WhatsApp conversation"></div>
+    <div class="composer" id="composer"></div>
+  </div>
+</div>
+
+<div class="ctl">
+  <button class="ghost" id="restart" type="button">&#8635; Restart</button>
+  <button class="ghost" id="autoplay" type="button">&#9654; Auto-play</button>
+</div>
+
+<p class="foot">Prototype &mdash; personas, stores and order histories are illustrative test data.</p>
+
+<script>
+(function(){
+"use strict";
+var R = matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* ---------- frame artwork ---------- */
+function frameSVG(front, arm, lens, w){
+  w = w || 150;
+  return '<svg viewBox="0 0 150 62" width="'+w+'" role="img" aria-label="Eyeglass frame">'+
+    '<path d="M6 20h138" stroke="'+arm+'" stroke-width="2.5" fill="none"/>'+
+    '<rect x="10" y="16" width="56" height="34" rx="12" fill="'+lens+'" stroke="'+front+'" stroke-width="4"/>'+
+    '<rect x="84" y="16" width="56" height="34" rx="12" fill="'+lens+'" stroke="'+front+'" stroke-width="4"/>'+
+    '<path d="M66 26c4-3 10-3 14 0" stroke="'+front+'" stroke-width="4" fill="none" stroke-linecap="round"/>'+
+    '</svg>';
+}
+function photoSVG(kind){
+  var g = kind === "selfie"
+    ? ['#F2C9A8','#D89B72','#3C2A22']
+    : ['#CBD8D6','#9FB3B0','#2E3A38'];
+  var inner = kind === "selfie"
+    ? '<ellipse cx="95" cy="206" rx="80" ry="60" fill="'+g[1]+'"/>'+
+      '<rect x="83" y="112" width="24" height="30" fill="'+g[0]+'"/>'+
+      '<ellipse cx="95" cy="74" rx="44" ry="40" fill="'+g[1]+'"/>'+
+      '<ellipse cx="95" cy="88" rx="38" ry="44" fill="'+g[0]+'"/>'+
+      '<path d="M57 92h76" stroke="'+g[2]+'" stroke-width="3" opacity=".5"/>'+
+      '<rect x="59" y="81" width="31" height="22" rx="8" fill="none" stroke="'+g[2]+'" stroke-width="3" opacity=".6"/>'+
+      '<rect x="100" y="81" width="31" height="22" rx="8" fill="none" stroke="'+g[2]+'" stroke-width="3" opacity=".6"/>'
+    : '<rect x="14" y="52" width="162" height="96" rx="12" fill="'+g[1]+'" opacity=".45"/>'+
+      '<g transform="translate(20,69)">'+
+        '<path d="M6 20h138" stroke="'+g[2]+'" stroke-width="2.5" fill="none"/>'+
+        '<rect x="10" y="16" width="56" height="34" rx="12" fill="#FFFFFF66" stroke="'+g[2]+'" stroke-width="4"/>'+
+        '<rect x="84" y="16" width="56" height="34" rx="12" fill="#FFFFFF66" stroke="'+g[2]+'" stroke-width="4"/>'+
+        '<path d="M66 26c4-3 10-3 14 0" stroke="'+g[2]+'" stroke-width="4" fill="none" stroke-linecap="round"/>'+
+      '</g>';
+  return '<svg viewBox="0 0 190 200" width="190" role="img" aria-label="Photo shared in chat">'+
+    '<rect width="190" height="200" fill="'+g[0]+'"/>'+ inner +'</svg>';
+}
+
+/* ---------- personas ---------- */
+var P = {};
+
+P.genz = {
+  name:"Aanya R.", tabline:"23 \u00b7 Bengaluru \u00b7 walked out of Indiranagar", voice:"Gen Z \u00b7 fast, lowercase energy",
+  status:"typing\u2026",
+  signals:[
+    {id:"dropoff", title:"Last drop-off", rows:[["Store","Indiranagar, BLR"],["When","Tue, 23 Sep \u00b7 3 days ago"],["NPS","7 / 10"],["Reason","Didn't like collection"]]},
+    {id:"browse", title:"Browsing \u00b7 7 days", rows:[["Views","Cat-eye \u00d79, clear acetate \u00d76"],["Brand","Hustlr \u00d76"],["Band","\u20b91,820 average"]]},
+    {id:"orders", title:"Profile & orders", rows:[["Orders","1 \u00b7 sunglasses"],["Last","Jun 2025 \u00b7 \u20b91,299"],["Channel","App \u00b7 Instagram-sourced"]]},
+    {id:"facescan", title:"Face scan on file", rows:[["Shape","Oval"],["PD","61 mm"],["Bridge","Narrow"],["Frame width","132 mm"]]},
+    {id:"upload", title:"Shared in this chat", rows:[["Reference","\u2014"],["Selfie","\u2014"]]},
+    {id:"free", title:"Free-text capture", rows:[["Requirement","\u2014"]]}
+  ],
+  cards:[
+    {n:"Hustlr Clear Cat-Eye", why:"Matches your reference", p:"\u20b91,800", s:"\u20b92,400", note:"Blue-cut included", c:["#C9C2B6","#B9B2A6","#FFFFFF"]},
+    {n:"Vincent Chase Hexa", why:"New shape, still oval-safe", p:"\u20b92,200", s:"", note:"132 mm \u00b7 true to your scan", c:["#8A6B3E","#6E5430","#F6EDDD"]},
+    {n:"Air Featherlite", why:"6 g \u00b7 won't slide", p:"\u20b91,500", s:"\u20b91,900", note:"Next-day in Indiranagar", c:["#1F2A33","#1F2A33","#EAF0F3"]}
+  ]
+};
+
+P.pro = {
+  name:"Rohan M.", tabline:"34 \u00b7 Mumbai \u00b7 rated Powai 6/10", voice:"Professional \u00b7 crisp, value-first",
+  status:"online",
+  signals:[
+    {id:"dropoff", title:"Last drop-off", rows:[["Store","Powai, MUM"],["When","Sat, 20 Sep \u00b7 5 days ago"],["NPS","6 / 10 \u00b7 detractor"],["Reason","Price high + staff unavailable"]]},
+    {id:"browse", title:"Browsing \u00b7 7 days", rows:[["Views","Progressive \u00d74, blue-cut \u00d77"],["Brand","JJ Titanium \u00d73"],["Band","\u20b95,900 average"]]},
+    {id:"orders", title:"Profile & orders", rows:[["Orders","3 since 2022"],["Last","Lenskart Air \u00b7 Mar 2025"],["AOV","\u20b93,120"]]},
+    {id:"facescan", title:"Face scan on file", rows:[["Shape","Square"],["PD","64 mm"],["Bridge","Wide"],["Frame width","142 mm"]]},
+    {id:"upload", title:"Shared in this chat", rows:[["Reference","\u2014"],["Selfie","\u2014"]]},
+    {id:"free", title:"Free-text capture", rows:[["Requirement","\u2014"]]}
+  ],
+  cards:[
+    {n:"Air Titanium-look", why:"Your March tier, 8 g", p:"\u20b93,499", s:"", note:"Blue-cut added", c:["#6B7480","#5A636E","#EDF1F4"]},
+    {n:"John Jacobs Soft-Rect", why:"Last season's colourway", p:"\u20b94,200", s:"\u20b96,500", note:"Same build as in-store", c:["#2A2F36","#2A2F36","#E9EEF2"]},
+    {n:"Vincent Chase Round", why:"Closest to your reference", p:"\u20b92,199", s:"", note:"142 mm \u00b7 softens a square face", c:["#7A6A55","#6A5B49","#F2EDE3"]}
+  ]
+};
+
+P.loyal = {
+  name:"Mrs. Sharma", tabline:"61 \u00b7 Delhi \u00b7 repair unresolved at Lajpat Nagar", voice:"Loyalist \u00b7 warm, unhurried, plain",
+  status:"online",
+  signals:[
+    {id:"dropoff", title:"Last drop-off", rows:[["Store","Lajpat Nagar, DEL"],["When","Thu, 25 Sep \u00b7 2 days ago"],["Visit","Repair request"],["Outcome","Hinge part unavailable"]]},
+    {id:"browse", title:"Browsing \u00b7 7 days", rows:[["Sessions","2 \u00b7 assisted"],["Views","Reading frames \u00d73"],["Band","Not established"]]},
+    {id:"orders", title:"Profile & orders", rows:[["Orders","5 since 2019"],["Last","Nov 2024 \u00b7 \u20b94,100"],["Rx on file","Progressive \u00b7 14 May 2025"]]},
+    {id:"facescan", title:"Face scan on file", rows:[["Shape","Round"],["PD","62 mm"],["Bridge","Medium"],["Frame width","136 mm"]]},
+    {id:"upload", title:"Shared in this chat", rows:[["Reference","\u2014"],["Selfie","\u2014"]]},
+    {id:"free", title:"Free-text capture", rows:[["Requirement","\u2014"]]}
+  ],
+  cards:[
+    {n:"Lenskart Air TR90", why:"8 g \u00b7 the lightest we make", p:"\u20b92,400", s:"", note:"Progressive included", c:["#3A3F46","#3A3F46","#EDF0F3"]},
+    {n:"Vincent Chase Half-rim", why:"Closest to your current pair", p:"\u20b92,800", s:"\u20b93,400", note:"Progressive included", c:["#7A5433","#6A482B","#F5EFE6"]},
+    {n:"John Jacobs Gold Metal", why:"Sturdy \u00b7 adjustable pads", p:"\u20b93,400", s:"", note:"Progressive included", c:["#A88A4E","#95793F","#FAF5E9"]}
+  ]
+};
+
+/* ---------- flows ---------- */
+P.genz.flow = {
+ start:{beat:"Drop-off", tpl:"Marketing template \u00b7 24h window closed", sig:["dropoff"],
+  why:"Opens on the exact drop-off \u2014 store, day, and the reason she picked at NPS \u2014 instead of a generic 'we miss you'. Naming her objection before making an offer is what earns the first tap.",
+  bot:["Hey Aanya \ud83d\udc4b You were at Indiranagar on Tuesday and walked out empty-handed.",
+       "You told us the collection wasn't it. Fair \u2014 that shelf holds about 400 frames. We make 5,000+.",
+       "Want me to pull the ones that'd actually work on your face?"],
+  opts:[{t:"Yes, show me", next:"occasion"},{t:"What went wrong?", next:"objection"},{t:"Not now", next:"snooze"}]},
+
+ objection:{beat:"Drop-off", sig:["dropoff","browse"],
+  why:"Reflecting the rating back builds trust cheaply, and it reframes the store as a sample rather than the range \u2014 which is the actual retention argument.",
+  bot:["You rated us 7 and picked 'didn't like the collection'.",
+       "The wall you saw is a slice of what we carry. Hustlr, the new clear acetates, half the cat-eye drop \u2014 none of it ships to that store."],
+  opts:[{t:"Okay, show me", next:"occasion"}]},
+
+ snooze:{beat:"Close", end:true, sig:[],
+  why:"A clean exit with a stated re-contact window. No guilt, no second ask \u2014 the opposite of the v1 flow, which looped the menu.",
+  bot:["All good. I'll hold your picks for 7 days and ping you once. \u270c\ufe0f"]},
+
+ occasion:{beat:"Occasion", sig:["facescan","browse"],
+  why:"Face geometry and a week of browsing are both spent in one breath, so the first real question already sounds informed instead of like a form.",
+  bot:["Say less. Your last face scan reads oval, 61 mm PD \u2014 cat-eye and angular shapes sit best on you.",
+       "And you've been circling clear acetates in the app all week \ud83d\udc41\ufe0f",
+       "Where are these living, mostly?"],
+  opts:[{t:"Everyday / campus", next:"budget"},{t:"Going out", next:"budget"},{t:"Screen time", next:"budget"}]},
+
+ budget:{beat:"Budget", sig:["browse"],
+  why:"Proposes the number instead of asking for it. Browsing average is a better first guess than a blank field, and she can override in one tap.",
+  bot:["Budget \u2014 your browsing sits around \u20b91,800, so I'm starting there. Move it if you want."],
+  opts:[{t:"Under \u20b91,500", next:"shape"},{t:"\u20b91,500\u20132,500", next:"shape"},{t:"\u20b92,500+", next:"shape"}]},
+
+ shape:{beat:"Shape", sig:["facescan"],
+  why:"Offers her a lane she already likes and one she hasn't tried. 'Didn't like the collection' usually means 'saw the same four shapes', so novelty is the remedy.",
+  bot:["Shape. Stay in your cat-eye lane, or want me to throw in something you haven't tried?"],
+  opts:[{t:"Cat-eye", next:"colour"},{t:"Geometric", next:"colour"},{t:"Surprise me", next:"colour"}]},
+
+ colour:{beat:"Colour", sig:[], list:"Pick a colour story",
+  why:"Four answers, so it renders as an interactive list rather than buttons. 'Just make it work' is a real option \u2014 forcing a choice here loses people.",
+  bot:["Colour story?"],
+  opts:[{t:"Clear / transparent", next:"ref"},{t:"Tortoise", next:"ref"},{t:"Black", next:"ref"},{t:"Just make it work", next:"ref"}]},
+
+ ref:{beat:"Reference", sig:[],
+  why:"Gen Z shop from saved screenshots. Asking for the artefact they already have beats asking them to describe a frame in words.",
+  bot:["Got a frame saved somewhere? Drop the screenshot in \u2014 I'll match the silhouette."],
+  opts:[{t:"\ud83d\udcce Send a reference", act:"ref", next:"refdone"},{t:"Skip", next:"selfie"}]},
+
+ refdone:{beat:"Reference", sig:["upload"],
+  why:"Describing what the vision API saw proves the upload was actually read. Silent processing reads as a black hole and kills the next ask.",
+  bot:["Flat top bar, sharp outer corner, clear acetate. Got three in that exact silhouette."],
+  opts:[{t:"Show me on my face", next:"selfie"},{t:"Just send the picks", next:"picks"}]},
+
+ selfie:{beat:"Try-on", sig:[],
+  why:"Selfies are ordinary for this segment, so the ask is casual and gives a reason \u2014 better render, less guessing. No permission theatre.",
+  bot:["Send a selfie \u2014 straight on, decent light. I'll render the try-on properly instead of guessing."],
+  opts:[{t:"\ud83d\udcf8 Send selfie", act:"selfie", next:"selfiedone"},{t:"Skip", next:"picks"}]},
+
+ selfiedone:{beat:"Try-on", sig:["facescan","upload"],
+  why:"Ties the new photo to the stored scan and converts it into a fit promise. Slipping frames are the number-one online return reason.",
+  bot:["Matched against your November scan \u2014 132 mm width, narrow bridge. These won't slide down your nose.",
+       "Try-ons rendering now \ud83d\udc47"],
+  opts:[{t:"Show me", next:"picks"}]},
+
+ picks:{beat:"Picks", cards:true, sig:["browse","facescan"],
+  why:"Add to cart and wishlist live inside the thread. Every hop to a PLP is a drop-off \u2014 this is the leak the v1 journey never closed.",
+  bot:["Top three for you:"],
+  opts:[{t:"Something else?", next:"free"}]},
+
+ free:{beat:"Free text", input:"type your requirement\u2026", sig:[],
+  why:"One open field at the end catches everything the buttons couldn't. Unparsed answers go to a stylist rather than back into the menu.",
+  bot:["Anything I'm missing? Type it \u2014 I read the whole thing."],
+  next:"freedone"},
+
+ freedone:{beat:"Free text", sig:["free"],
+  why:"Repeats the parsed requirement back and shows the shortlist actually moved. Visible consequence is what makes the next open question worth answering.",
+  bot:["Noted. Reshuffling around that.","Two of the three hold. Swapped the third for something lighter."],
+  opts:[{t:"Perfect, done", next:"close"}]},
+
+ close:{beat:"Close", end:true, sig:[],
+  why:"Human help offered as taste, not as support. Cart hold and delivery promise are both concrete \u2014 a vague 'shop now' would waste the turn.",
+  bot:["Cart's held 24 hours. Next-day delivery to Indiranagar.","Want a stylist to sanity-check before you pay?"],
+  opts:[{t:"Open cart", act:"end"},{t:"Yes, connect me", act:"end"}]}
+};
+
+P.pro.flow = {
+ start:{beat:"Drop-off", tpl:"Marketing template \u00b7 24h window closed", sig:["dropoff","browse"],
+  why:"A detractor gets the objection quantified, not softened. Quoting the exact frame and price proves the store visit was actually recorded.",
+  bot:["Hi Rohan \u2014 you were at our Powai store on Saturday and rated the visit 6 out of 10.",
+       "You flagged two things: the price, and that nobody was free to help. Both are on us.",
+       "The frame you tried was the John Jacobs titanium at \u20b96,500. There are three ways to that same look for less. Want them laid out?"],
+  opts:[{t:"Show me", next:"occasion"},{t:"What three ways?", next:"three"},{t:"Not now", next:"snooze"}]},
+
+ three:{beat:"Drop-off", sig:["orders","browse"],
+  why:"Answers the price objection with arithmetic instead of a discount code. Option 3 names the real culprit \u2014 lens package upsell at the counter.",
+  bot:["1. Same frame, last season's colourway \u2014 \u20b94,200.\n2. Lenskart Air titanium-look, 8 g, \u20b93,499 \u2014 the tier you bought in March.\n3. Same frame, lens package trimmed to what your prescription actually needs."],
+  opts:[{t:"Useful \u2014 continue", next:"occasion"}]},
+
+ snooze:{beat:"Close", end:true, sig:[],
+  why:"No re-ask. For a detractor, a second nudge inside the same thread reads as pressure and costs the next campaign.",
+  bot:["Understood. I'll leave this here \u2014 your shortlist stays saved if you want it later."]},
+
+ occasion:{beat:"Occasion", sig:["orders"],
+  why:"Anchors on his own purchase history so the price band is self-set. A returning customer's last order is the most defensible starting number you have.",
+  bot:["You've ordered three times; the last pair was a Lenskart Air at \u20b93,499. I'll anchor there unless you say otherwise.",
+       "What's this pair mainly for?"],
+  opts:[{t:"Work + screens", next:"budget"},{t:"Driving", next:"budget"},{t:"Weekend", next:"budget"}]},
+
+ budget:{beat:"Budget", sig:[],
+  why:"Says 'including lenses' out loud. The drop-off was caused by a number that grew at the counter \u2014 pre-empting that is the whole retention argument.",
+  bot:["Ceiling \u2014 including lenses, not just the frame. No surprises at checkout."],
+  opts:[{t:"Up to \u20b92,500", next:"shape"},{t:"\u20b92,500\u20134,000", next:"shape"},{t:"\u20b94,000\u20136,000", next:"shape"}]},
+
+ shape:{beat:"Shape", sig:["facescan"],
+  why:"Gives the reasoning, then the choice. This segment resents being told what suits them, but will take a stated trade-off.",
+  bot:["Your scan reads square, 64 mm PD, wide bridge. Rounded and soft-rectangle balance that; sharp rectangles double down on it.",
+       "Which way do you want to go?"],
+  opts:[{t:"Soften it", next:"colour"},{t:"Keep it sharp", next:"colour"},{t:"You pick", next:"colour"}]},
+
+ colour:{beat:"Colour", sig:[], list:"Choose a finish",
+  why:"Four finishes, so an interactive list. Finish rather than 'colour' \u2014 it's the word this buyer uses when comparing to the titanium he tried.",
+  bot:["Finish?"],
+  opts:[{t:"Gunmetal", next:"ref"},{t:"Matte black", next:"ref"},{t:"Tortoise", next:"ref"},{t:"Transparent", next:"ref"}]},
+
+ ref:{beat:"Reference", sig:[],
+  why:"Explicitly invites a competitor's frame. Price-sensitive buyers comparison-shop anyway; capturing it in-thread keeps the sale here.",
+  bot:["If there's a frame you've seen elsewhere, send a photo \u2014 I'll find the closest thing we make, at our price."],
+  opts:[{t:"\ud83d\udcce Send a reference", act:"ref", next:"refdone"},{t:"Skip", next:"selfie"}]},
+
+ refdone:{beat:"Reference", sig:["upload"],
+  why:"Returns the measurements, not adjectives. Reading back 52-18-145 signals the system is optical, not a chatbot guessing at vibes.",
+  bot:["That's a 52-18-145 rectangle with a keyhole bridge. We build three near-identical frames \u2014 cheapest is \u20b92,199."],
+  opts:[{t:"Show them on me", next:"selfie"},{t:"Just the picks", next:"picks"}]},
+
+ selfie:{beat:"Try-on", sig:[],
+  why:"Framed as a time-saver, which is the currency for this persona \u2014 one photo now instead of a second store visit.",
+  bot:["Want to see them on before you decide? One straight-on photo is enough."],
+  opts:[{t:"\ud83d\udcf8 Send photo", act:"selfie", next:"selfiedone"},{t:"Skip", next:"picks"}]},
+
+ selfiedone:{beat:"Try-on", sig:["facescan","upload"],
+  why:"Optical-centre alignment is a real quality claim and it directly counters 'cheaper online means worse'. Technical detail reassures this buyer.",
+  bot:["Rendered against your stored scan \u2014 64 mm PD, so the optical centres line up correctly on all three."],
+  opts:[{t:"Show me", next:"picks"}]},
+
+ picks:{beat:"Picks", cards:true, sig:["orders","browse"],
+  why:"Each card carries the reason it's there. A shortlist with visible logic outperforms a longer one, especially after a price objection.",
+  bot:["Three that clear your ceiling:"],
+  opts:[{t:"One more thing", next:"free"}]},
+
+ free:{beat:"Free text", input:"Screen hours, existing power, anything\u2026", sig:[],
+  why:"Prompts with examples so the open field returns something parseable instead of 'nothing'.",
+  bot:["Anything else I should factor in \u2014 screen hours, existing power, anything?"],
+  next:"freedone"},
+
+ freedone:{beat:"Free text", sig:["free"],
+  why:"Acts on the answer immediately and re-states the price impact, because the price is the thing that broke last time.",
+  bot:["Got it. Blue-cut added to all three and repriced \u2014 two stay inside your ceiling."],
+  opts:[{t:"Good, done", next:"close"}]},
+
+ close:{beat:"Close", end:true, sig:[],
+  why:"A free home trial removes the risk that the price objection was really a confidence objection, and it does it without discounting.",
+  bot:["Cart's live for 24 hours.","Home trial is free in Powai \u2014 three frames, no obligation."],
+  opts:[{t:"Add to cart", act:"end"},{t:"Book home trial", act:"end"}]}
+};
+
+P.loyal.flow = {
+ start:{beat:"Drop-off", tpl:"Marketing template \u00b7 24h window closed", sig:["dropoff"],
+  why:"Apology first, then two concrete remedies. No slang, no emoji, complete sentences \u2014 and the unresolved repair is named before anything is sold.",
+  bot:["Good morning, Mrs. Sharma. This is Lenskart.",
+       "You came to our Lajpat Nagar store on Thursday to get your glasses repaired, and we could not help you that day. We are sorry for the trouble.",
+       "Your frame needs a hinge we did not have in store. We can repair it free of charge at our lab, or fit your existing prescription into a new frame \u2014 whichever you prefer."],
+  opts:[{t:"Repair my glasses", next:"repair"},{t:"Show me new frames", next:"occasion"},{t:"Speak to someone", next:"human"}]},
+
+ human:{beat:"Close", end:true, sig:["dropoff"],
+  why:"The handoff is unconditional and specific \u2014 named store, fixed window, nothing further required of her. For this segment, a human is the premium option, not the fallback.",
+  bot:["Of course. Our Lajpat Nagar team will call you today between 4 and 6 pm on this number.","You do not need to do anything else."]},
+
+ repair:{beat:"Drop-off", sig:["dropoff"],
+  why:"Solves the original problem before attempting any sale, and removes the travel that caused the wasted trip. The spare pair is offered as a convenience, not an upsell.",
+  bot:["Of course. We will collect the glasses from your home, so there is no need to travel again.",
+       "The repair takes three working days and there is no charge.",
+       "Would you like to see a spare pair while yours is with us? Many customers find it useful."],
+  opts:[{t:"Yes, show me a spare", next:"occasion"},{t:"No, just the repair", next:"closeRepair"}]},
+
+ closeRepair:{beat:"Close", end:true, sig:[],
+  why:"Ends on the service promise with a time window and a confirmation trigger. Nothing is pitched after a no \u2014 that refusal is respected for the rest of the thread.",
+  bot:["Done. Pickup is scheduled for tomorrow between 10 am and 1 pm.","You will get a message here the moment it is collected."]},
+
+ occasion:{beat:"Occasion", sig:["orders"],
+  why:"Leads with what she does not have to do again. Re-entering a prescription is the single biggest friction point for this segment and we already hold it.",
+  bot:["We already have your prescription from your eye test in May \u2014 progressive lenses, both eyes. There is nothing for you to fill in again.",
+       "May I ask what you will use this pair for most?"],
+  opts:[{t:"Reading and TV", next:"budget"},{t:"All day", next:"budget"},{t:"Outdoors", next:"budget"}]},
+
+ budget:{beat:"Budget", sig:[],
+  why:"States plainly that lenses are included. Progressive add-ons are where older customers get surprised at the counter, and the fear of that is real.",
+  bot:["And what would you like to spend? Progressive lenses are included in every price I show you \u2014 nothing extra at the end."],
+  opts:[{t:"Up to \u20b92,000", next:"shape"},{t:"\u20b92,000\u20133,500", next:"shape"},{t:"Depends on the frame", next:"shape"}]},
+
+ shape:{beat:"Shape", sig:["facescan"],
+  why:"Translates the scan into comfort rather than style, and asks about weight \u2014 the thing she actually notices after six hours of wear.",
+  bot:["Your measurements are on file from your last visit \u2014 a rounder face, 62 mm between the eyes. A softly rectangular frame usually sits most comfortably.",
+       "Would you prefer something light on the nose, or something sturdier?"],
+  opts:[{t:"As light as possible", next:"colour"},{t:"Sturdier", next:"colour"},{t:"Whatever suits me", next:"colour"}]},
+
+ colour:{beat:"Colour", sig:[], list:"Choose a colour",
+  why:"Four options in a list, and 'no preference' is stated as acceptable so she is never stuck on a question she does not care about.",
+  bot:["Is there a colour you are fond of?"],
+  opts:[{t:"Black", next:"ref"},{t:"Brown", next:"ref"},{t:"Gold / metal", next:"ref"},{t:"No preference", next:"ref"}]},
+
+ ref:{beat:"Reference", sig:[],
+  why:"Asks for a photo of the pair she already owns rather than an aspirational one. Familiarity is the selling point here, not novelty.",
+  bot:["If you send a photo of the glasses you wear now, we will find the closest frame to them. You may like the familiar shape."],
+  opts:[{t:"\ud83d\udcce Send a photo", act:"ref", next:"refdone"},{t:"Skip this", next:"selfie"}]},
+
+ refdone:{beat:"Reference", sig:["upload"],
+  why:"Thanks her, describes what was seen in ordinary words, and turns the match into a benefit \u2014 lighter than what she has now.",
+  bot:["Thank you. These are a brown half-rim, about 54 mm wide.","We have four frames very close to this, and all of them are lighter than your current pair."],
+  opts:[{t:"Show me on my face", next:"selfie"},{t:"Just show the frames", next:"picks"}]},
+
+ selfie:{beat:"Try-on", sig:[],
+  why:"The only turn in the prototype with an explicit opt-out. Making 'no' comfortable is what keeps the thread alive through the rest of the flow.",
+  bot:["If you would like to see how a frame looks on you, send one photo of your face. No need to pose \u2014 looking straight ahead is enough.",
+       "If you would rather not, that is perfectly fine."],
+  opts:[{t:"\ud83d\udcf8 Send a photo", act:"selfie", next:"selfiedone"},{t:"I'd rather not", next:"picks"}]},
+
+ selfiedone:{beat:"Try-on", sig:["facescan","upload"],
+  why:"Converts the render into a size guarantee. 'The size you see is the size you receive' answers the real anxiety about buying eyewear remotely.",
+  bot:["Thank you. We have placed each frame on your photo using your own measurements, so the size you see is the size you receive."],
+  opts:[{t:"Show me", next:"picks"}]},
+
+ picks:{beat:"Picks", cards:true, sig:["orders","facescan"],
+  why:"Every card repeats that progressive lenses are included, because the price shown has to be the price paid for this customer to act on it.",
+  bot:["Here are three, all with your progressive lenses included:"],
+  opts:[{t:"One more thing", next:"free"}]},
+
+ free:{beat:"Free text", input:"Type anything you'd like us to know\u2026", sig:[],
+  why:"Invites free text in the gentlest possible framing and makes clear a person will read it \u2014 which, for this segment, is true.",
+  bot:["Is there anything else we should keep in mind? You can simply type it here and our team will read it."],
+  next:"freedone"},
+
+ freedone:{beat:"Free text", sig:["free"],
+  why:"Confirms the note was received and shows the shortlist narrowed. No new questions after this point \u2014 the thread starts closing.",
+  bot:["Thank you, that is noted. I have kept only the frames that suit that."],
+  opts:[{t:"That's all", next:"close"}]},
+
+ close:{beat:"Close", end:true, sig:[],
+  why:"Offers a scheduled human call as the first option and explicitly permits her to take her time. Urgency is the wrong lever for a five-order loyalist.",
+  bot:["I can have the Lajpat Nagar store call you tomorrow at 11 am to confirm everything, or send you the link so you may take your time.",
+       "Whichever is easier."],
+  opts:[{t:"Please call me", act:"end"},{t:"Send me the link", act:"end"}]}
+};
+
+
+/* ---------- engine ---------- */
+var thread=document.getElementById("thread"),
+    composer=document.getElementById("composer"),
+    picker=document.getElementById("picker"),
+    cartN=document.getElementById("cartN"),
+    wishN=document.getElementById("wishN"),
+    waStatus=document.getElementById("waStatus"),
+    sessionTag=document.getElementById("sessionTag");
+
+var KEYS=["genz","pro","loyal"];
+var SHORT={genz:"Aanya, 23",pro:"Rohan, 34",loyal:"Mrs. Sharma, 61"};
+var WHY={genz:"didn't like collection",pro:"price was high",loyal:"repair unresolved"};
+var cur="genz", cart=0, wish=0, clock=0, auto=false, timers=[];
+
+function el(t,c,h){var e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function stamp(){clock+=1; var mins=7+Math.floor(clock/2), h=12+Math.floor(mins/60), m=mins%60;
+  return (h>12?h-12:h)+":"+String(m).padStart(2,"0")+" pm";}
+function delay(fn,ms){var t=setTimeout(fn,R?0:ms); timers.push(t); return t;}
+function toBottom(){thread.scrollTop=thread.scrollHeight;}
+
+KEYS.forEach(function(k){
+  var b=el("button","pick",'<b>'+esc(SHORT[k])+'</b><span>'+esc(WHY[k])+'</span>');
+  b.type="button"; b.dataset.k=k;
+  b.addEventListener("click",function(){cur=k; boot();});
+  picker.appendChild(b);
+});
+function paintPicker(){
+  Array.prototype.forEach.call(picker.children,function(b){
+    b.setAttribute("aria-pressed", b.dataset.k===cur?"true":"false");
+  });
+}
+
+function botBubble(text){
+  var g=el("div","grp"), m=el("div","msg in");
+  m.innerHTML=esc(text).replace(/\n/g,"<br>")+'<span class="time">'+stamp()+'</span>';
+  g.appendChild(m); thread.appendChild(g); toBottom();
+}
+function userBubble(text){
+  var g=el("div","grp"), m=el("div","msg out");
+  m.innerHTML=esc(text)+'<span class="time">'+stamp()+'</span>';
+  g.appendChild(m); thread.appendChild(g); toBottom();
+}
+function userPhoto(kind){
+  var g=el("div","grp"), m=el("div","msg out media");
+  m.innerHTML='<span class="photo">'+photoSVG(kind)+'</span>'+
+    '<div class="cap">'+(kind==="selfie"?"":"Saved this one")+'</div>'+
+    '<span class="time">'+stamp()+'</span>';
+  g.appendChild(m); thread.appendChild(g); toBottom();
+}
+function typing(cb,ms){
+  var t=el("div","typing",'<i></i><i></i><i></i>');
+  thread.appendChild(t); toBottom();
+  delay(function(){t.remove(); cb();},ms);
+}
+function cardStrip(){
+  var wrap=el("div","cards");
+  P[cur].cards.forEach(function(c){
+    var d=el("div","card");
+    d.innerHTML='<div class="shot">'+frameSVG(c.c[0],c.c[1],c.c[2],156)+'</div>'+
+      '<div class="body"><span class="pn">'+esc(c.n)+'</span><span class="why">'+esc(c.why)+'</span>'+
+      '<span class="pr">'+esc(c.p)+(c.s?'<s>'+esc(c.s)+'</s>':'')+'</span>'+
+      '<span class="note">'+esc(c.note)+'</span></div>'+
+      '<div class="acts"><button type="button" data-a="cart">Add to cart</button><button type="button" data-a="wish">Wishlist</button></div>';
+    d.querySelectorAll(".acts button").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        if(btn.classList.contains("done")) return;
+        btn.classList.add("done");
+        if(btn.dataset.a==="cart"){cart++; cartN.textContent=cart; btn.textContent="In cart ✓";
+          botBubble(c.n+" is in your cart — "+c.p+". "+(cur==="loyal"?"Nothing more to pay for the lenses.":"Held for 24 hours."));
+        } else {wish++; wishN.textContent=wish; btn.textContent="Saved ✓";
+          botBubble("Saved "+c.n+" to your wishlist.");}
+      });
+    });
+    wrap.appendChild(d);
+  });
+  thread.appendChild(wrap); toBottom();
+}
+function composerIdle(msg){
+  composer.innerHTML='<div class="cbox locked"><input type="text" placeholder="'+esc(msg||"Tap a reply above")+'" disabled></div>'+
+    '<button class="send" type="button" disabled aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M3 20l19-8L3 4v6l12 2-12 2z"/></svg></button>';
+}
+function composerText(ph,onSend){
+  composer.innerHTML='<div class="cbox"><input type="text" id="ti" placeholder="'+esc(ph)+'" autocomplete="off"></div>'+
+    '<button class="send" type="button" id="sb" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M3 20l19-8L3 4v6l12 2-12 2z"/></svg></button>';
+  var i=document.getElementById("ti"), b=document.getElementById("sb");
+  function fire(){var v=i.value.trim(); if(!v) return; composerIdle(); onSend(v);}
+  b.addEventListener("click",fire);
+  i.addEventListener("keydown",function(e){if(e.key==="Enter") fire();});
+}
+function composerUpload(label,onPick){
+  composer.innerHTML='<button class="upload-cue" type="button" id="up"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M12 3v13M7 8l5-5 5 5"/></svg>'+esc(label)+'</button>';
+  document.getElementById("up").addEventListener("click",function(){composerIdle(); onPick();});
+}
+function renderOptions(n){
+  var opts=n.opts||[], holder;
+  if(n.list && opts.length>3){
+    holder=el("div","listbox");
+    holder.innerHTML='<div class="lb-head">'+esc(n.list)+'</div>';
+    opts.forEach(function(o){
+      var b=el("button","lb-row",esc(o.t)); b.type="button";
+      b.addEventListener("click",function(){choose(o,holder);});
+      holder.appendChild(b);
+    });
+  } else {
+    holder=el("div","btns");
+    opts.forEach(function(o){
+      var b=el("button","qb",esc(o.t)); b.type="button";
+      b.addEventListener("click",function(){choose(o,holder);});
+      holder.appendChild(b);
+    });
+  }
+  thread.appendChild(holder); toBottom();
+}
+function choose(o,holder){
+  holder.querySelectorAll("button").forEach(function(b){b.disabled=true;});
+  holder.style.opacity=".55";
+  if(o.act==="end"){userBubble(o.t); finish(); return;}
+  if(o.act==="ref"||o.act==="selfie"){
+    var kind=o.act==="selfie"?"selfie":"reference";
+    composerUpload(kind==="selfie"?"Attach a photo of yourself":"Attach a reference photo",function(){
+      userPhoto(kind); go(o.next);
+    });
+    return;
+  }
+  userBubble(o.t); go(o.next);
+}
+function finish(){
+  composerIdle("Session closes after 30 minutes of silence");
+  sessionTag.textContent="handed off";
+  waStatus.textContent="online";
+  var d=el("div","daystamp closed","Bot closed · thread stays open for 24 hours");
+  d.style.marginTop="8px";
+  thread.appendChild(d); toBottom();
+}
+function go(id){
+  var n=P[cur].flow[id]; if(!n) return;
+  if(n.tpl){thread.appendChild(el("div","tag-tpl",esc(n.tpl)));}
+  composerIdle();
+  waStatus.textContent="typing…";
+  var msgs=n.bot.slice();
+  (function next(){
+    if(!msgs.length){
+      waStatus.textContent="online";
+      if(n.cards) cardStrip();
+      if(n.input){
+        composerText(n.input,function(v){userBubble(v); go(n.next);});
+        return;
+      }
+      if(n.end && !n.opts){finish(); return;}
+      if(n.opts) renderOptions(n);
+      return;
+    }
+    var m=msgs.shift();
+    typing(function(){botBubble(m); next();}, Math.min(1100, 320+m.length*7));
+  })();
+}
+function boot(){
+  timers.forEach(clearTimeout); timers=[];
+  thread.innerHTML=""; cart=0; wish=0; clock=0; auto=false;
+  cartN.textContent="0"; wishN.textContent="0";
+  sessionTag.textContent="session open";
+  waStatus.textContent=P[cur].status;
+  document.getElementById("autoplay").innerHTML="&#9654; Auto-play";
+  paintPicker();
+  thread.appendChild(el("div","daystamp","Today"));
+  go("start");
+}
+document.getElementById("restart").addEventListener("click",boot);
+document.getElementById("autoplay").addEventListener("click",function(){
+  var btn=this; auto=!auto;
+  btn.innerHTML = auto ? "&#9208; Stop" : "&#9654; Auto-play";
+  if(!auto) return;
+  var idle=0;
+  (function step(){
+    if(!auto) return;
+    if(thread.querySelector(".closed")){auto=false; btn.innerHTML="&#9654; Auto-play"; return;}
+    var b=thread.querySelector(".btns button:not(:disabled), .lb-row:not(:disabled)");
+    var up=document.getElementById("up"), ti=document.getElementById("ti");
+    if(b){idle=0; b.click();}
+    else if(up){idle=0; up.click();}
+    else if(ti){idle=0;
+      ti.value = cur==="genz" ? "something lightweight, i stare at a screen all day"
+               : cur==="pro" ? "9-10 hours of screen time, and I drive at night"
+               : "something light, my current pair hurts behind the ears";
+      document.getElementById("sb").click();}
+    else if(++idle>24){auto=false; btn.innerHTML="&#9654; Auto-play"; return;}
+    delay(step, idle?300:1400);
+  })();
+});
+boot();
+})();
+</script>
+</body>
+</html>
