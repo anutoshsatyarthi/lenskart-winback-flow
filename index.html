@@ -120,6 +120,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .cbox input{flex:1;border:0;outline:0;background:none;font:inherit;font-size:16px;color:var(--wa-wall-ink);min-width:0}
 .cbox input::placeholder{color:var(--wa-meta);font-size:13.6px}
 .cbox.locked{opacity:.68}
+.clip{width:34px;height:34px;flex:0 0 auto;display:grid;place-items:center;color:var(--wa-meta);border-radius:50%;transition:color .15s ease,background .15s ease}
+.clip:hover{color:var(--wa-head);background:rgba(0,0,0,.06)}
 .send{width:38px;height:38px;border-radius:50%;background:var(--wa-head);display:grid;place-items:center;flex:0 0 auto}
 .send:disabled{opacity:.4;cursor:default}
 .upload-cue{flex:1;display:flex;gap:7px;align-items:center;justify-content:center;background:var(--wa-in);border:1px dashed var(--wa-head);border-radius:20px;padding:8px 12px;color:var(--wa-head);font-size:13px;font-weight:600}
@@ -177,7 +179,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   <button class="ghost" id="autoplay" type="button">&#9654; Auto-play</button>
 </div>
 
-<p class="foot">Prototype &mdash; personas, stores and order histories are illustrative test data.</p>
+<p class="foot">Tap a reply, or type your own message &mdash; the bot matches free text to the options and hands over to a person when it can&rsquo;t.<br>Prototype &mdash; personas, stores and order histories are illustrative test data.</p>
 
 <script>
 (function(){
@@ -309,10 +311,10 @@ P.genz.flow = {
   bot:["Shape. Stay in your cat-eye lane, or want me to throw in something you haven't tried?"],
   opts:[{t:"Cat-eye", next:"colour"},{t:"Geometric", next:"colour"},{t:"Surprise me", next:"colour"}]},
 
- colour:{beat:"Colour", sig:[], list:"Pick a colour story",
+ colour:{beat:"Colour", sig:[],
   why:"Four answers, so it renders as an interactive list rather than buttons. 'Just make it work' is a real option \u2014 forcing a choice here loses people.",
   bot:["Colour story?"],
-  opts:[{t:"Clear / transparent", next:"ref"},{t:"Tortoise", next:"ref"},{t:"Black", next:"ref"},{t:"Just make it work", next:"ref"}]},
+  opts:[{t:"Clear / transparent", next:"ref"},{t:"Tortoise", next:"ref"},{t:"Just make it work", next:"ref"}]},
 
  ref:{beat:"Reference", sig:[],
   why:"Gen Z shop from saved screenshots. Asking for the artefact they already have beats asking them to describe a frame in words.",
@@ -390,10 +392,10 @@ P.pro.flow = {
        "Which way do you want to go?"],
   opts:[{t:"Soften it", next:"colour"},{t:"Keep it sharp", next:"colour"},{t:"You pick", next:"colour"}]},
 
- colour:{beat:"Colour", sig:[], list:"Choose a finish",
+ colour:{beat:"Colour", sig:[],
   why:"Four finishes, so an interactive list. Finish rather than 'colour' \u2014 it's the word this buyer uses when comparing to the titanium he tried.",
   bot:["Finish?"],
-  opts:[{t:"Gunmetal", next:"ref"},{t:"Matte black", next:"ref"},{t:"Tortoise", next:"ref"},{t:"Transparent", next:"ref"}]},
+  opts:[{t:"Gunmetal", next:"ref"},{t:"Matte black", next:"ref"},{t:"Tortoise", next:"ref"}]},
 
  ref:{beat:"Reference", sig:[],
   why:"Explicitly invites a competitor's frame. Price-sensitive buyers comparison-shop anyway; capturing it in-thread keeps the sale here.",
@@ -476,10 +478,10 @@ P.loyal.flow = {
        "Would you prefer something light on the nose, or something sturdier?"],
   opts:[{t:"As light as possible", next:"colour"},{t:"Sturdier", next:"colour"},{t:"Whatever suits me", next:"colour"}]},
 
- colour:{beat:"Colour", sig:[], list:"Choose a colour",
+ colour:{beat:"Colour", sig:[],
   why:"Four options in a list, and 'no preference' is stated as acceptable so she is never stuck on a question she does not care about.",
   bot:["Is there a colour you are fond of?"],
-  opts:[{t:"Black", next:"ref"},{t:"Brown", next:"ref"},{t:"Gold / metal", next:"ref"},{t:"No preference", next:"ref"}]},
+  opts:[{t:"Black", next:"ref"},{t:"Brown or gold", next:"ref"},{t:"No preference", next:"ref"}]},
 
  ref:{beat:"Reference", sig:[],
   why:"Asks for a photo of the pair she already owns rather than an aspirational one. Familiarity is the selling point here, not novelty.",
@@ -603,88 +605,165 @@ function cardStrip(){
   });
   thread.appendChild(wrap); toBottom();
 }
-function composerIdle(msg){
-  composer.innerHTML='<div class="cbox locked"><input type="text" placeholder="'+esc(msg||"Tap a reply above")+'" disabled></div>'+
-    '<button class="send" type="button" disabled aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M3 20l19-8L3 4v6l12 2-12 2z"/></svg></button>';
+var node=null, optHolder=null, pendingUpload=null, miss=0, closed=false, draft="", queued=null;
+
+var NUDGE={
+  genz:"Noted — saved that for the team.\n\nPick one of these so I can narrow it down:",
+  pro:"Noted, and it's on your file.\n\nPick one of these and I'll keep it moving:",
+  loyal:"Thank you, we have made a note of that.\n\nPlease choose one of these and we will take it from there:"
+};
+var HANDOFF={
+  genz:"Okay, that's outside what I can sort on my own — I'll put a human on it.\n\nWant me to connect you now, or keep going here?",
+  pro:"That needs a person rather than a bot, and I'd rather not waste your time guessing.\n\nConnect you now, or carry on here?",
+  loyal:"That is best answered by one of our team, and I do not want to guess.\n\nShall I connect you, or would you like to carry on here?"
+};
+var RESUME={
+  genz:"Cool — back to where we were:",
+  pro:"Understood. Back to it:",
+  loyal:"Of course. Here is where we were:"
+};
+var SAMPLE={
+  genz:"something lightweight, i stare at a screen all day",
+  pro:"9-10 hours of screen time, and I drive at night",
+  loyal:"something light, my current pair hurts behind the ears"
+};
+
+function norm(s){return String(s).toLowerCase().replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim();}
+function expand(a){
+  if(/^(yes|yeah|yep|yup|sure|ok|okay|haan|han|ya|done|perfect|good)\b/.test(a)) a+=" yes show me okay good done perfect continue";
+  if(/^(no|nope|nah|not now|skip|later)\b/.test(a)) a+=" no not now skip rather not";
+  return a;
 }
-function composerText(ph,onSend){
-  composer.innerHTML='<div class="cbox"><input type="text" id="ti" placeholder="'+esc(ph)+'" autocomplete="off"></div>'+
+function matchOption(v,opts){
+  if(!opts||!opts.length) return null;
+  var raw=v.trim();
+  if(/^[1-3]$/.test(raw) && opts.length>=+raw) return opts[+raw-1];
+  var a=expand(norm(v)), best=null, bs=0;
+  opts.forEach(function(o){
+    var b=norm(o.t), s=0;
+    if(!b) return;
+    if(a===b) s=100;
+    else if(a.indexOf(b)>=0 || (b.indexOf(a)>=0 && a.length>=4)) s=82;
+    else{
+      var at=a.split(" "), bt=b.split(" ").filter(function(w){return w.length>2;});
+      if(bt.length){var hit=0; bt.forEach(function(w){if(at.indexOf(w)>=0) hit++;}); s=Math.round(hit/bt.length*72);}
+    }
+    if(s>bs){bs=s;best=o;}
+  });
+  return bs>=55?best:null;
+}
+function lockOptions(){
+  if(!optHolder) return;
+  optHolder.querySelectorAll("button").forEach(function(b){b.disabled=true;});
+  optHolder.style.opacity=".55"; optHolder=null;
+}
+function composerBar(ph,attach){
+  composer.innerHTML=
+    (attach?'<button class="clip" type="button" id="up" title="'+esc(attach)+'" aria-label="'+esc(attach)+'"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 0 1 5.19 5.19l-9.2 9.19a1.83 1.83 0 0 1-2.59-2.59l8.49-8.49"/></svg></button>':'')+
+    '<div class="cbox"><input type="text" id="ti" placeholder="'+esc(ph||"Message")+'" autocomplete="off" enterkeyhint="send"></div>'+
     '<button class="send" type="button" id="sb" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M3 20l19-8L3 4v6l12 2-12 2z"/></svg></button>';
   var i=document.getElementById("ti"), b=document.getElementById("sb");
-  function fire(){var v=i.value.trim(); if(!v) return; composerIdle(); onSend(v);}
+  if(draft){i.value=draft;}
+  i.addEventListener("input",function(){draft=i.value;});
+  function fire(){var v=i.value.trim(); if(!v) return; i.value=""; draft=""; handleTyped(v);}
   b.addEventListener("click",fire);
-  i.addEventListener("keydown",function(e){if(e.key==="Enter") fire();});
+  i.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault(); fire();}});
+  if(attach) document.getElementById("up").addEventListener("click",sendUpload);
 }
-function composerUpload(label,onPick){
-  composer.innerHTML='<button class="upload-cue" type="button" id="up"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M12 3v13M7 8l5-5 5 5"/></svg>'+esc(label)+'</button>';
-  document.getElementById("up").addEventListener("click",function(){composerIdle(); onPick();});
+function sendUpload(){
+  if(!pendingUpload) return;
+  var pu=pendingUpload; pendingUpload=null;
+  lockOptions(); miss=0;
+  userPhoto(pu.kind); go(pu.next);
+}
+function handleTyped(v){
+  userBubble(v);
+  if(thread.querySelector(".typing")){ queued=v; return; }
+  processTyped(v);
+}
+function processTyped(v){
+  if(closed){ typing(function(){botBubble("Thanks — our expert will pick this up right here.");},700); return; }
+  if(!node) return;
+  if(node.input){ lockOptions(); miss=0; go(node.next); return; }
+  var o=matchOption(v,node.opts);
+  if(o){ miss=0; lockOptions(); act(o); return; }
+  if(/\b(human|agent|expert|person|someone|representative|store|call me)\b/i.test(v)){ handoff(); return; }
+  miss++;
+  if(miss>=2){ handoff(); return; }
+  var again=node;
+  typing(function(){ botBubble(NUDGE[cur]); renderOptions(again); },900);
+}
+function handoff(){
+  miss=0; lockOptions();
+  var again=node;
+  showNode({bot:[HANDOFF[cur]],opts:[{t:"Talk to an expert",act:"end"},{t:"Carry on here",act:"back",back:again}]});
 }
 function renderOptions(n){
-  var opts=n.opts||[], holder;
-  if(n.list && opts.length>3){
-    holder=el("div","listbox");
-    holder.innerHTML='<div class="lb-head">'+esc(n.list)+'</div>';
-    opts.forEach(function(o){
-      var b=el("button","lb-row",esc(o.t)); b.type="button";
-      b.addEventListener("click",function(){choose(o,holder);});
-      holder.appendChild(b);
-    });
-  } else {
-    holder=el("div","btns");
-    opts.forEach(function(o){
-      var b=el("button","qb",esc(o.t)); b.type="button";
-      b.addEventListener("click",function(){choose(o,holder);});
-      holder.appendChild(b);
-    });
-  }
-  thread.appendChild(holder); toBottom();
+  node=n;
+  var holder=el("div","btns");
+  (n.opts||[]).slice(0,3).forEach(function(o){
+    var b=el("button","qb",esc(o.t)); b.type="button";
+    b.addEventListener("click",function(){choose(o,holder);});
+    holder.appendChild(b);
+  });
+  optHolder=holder; thread.appendChild(holder); toBottom();
 }
 function choose(o,holder){
   holder.querySelectorAll("button").forEach(function(b){b.disabled=true;});
-  holder.style.opacity=".55";
-  if(o.act==="end"){userBubble(o.t); finish(); return;}
+  holder.style.opacity=".55"; optHolder=null; miss=0;
+  act(o);
+}
+function act(o){
   if(o.act==="ref"||o.act==="selfie"){
-    var kind=o.act==="selfie"?"selfie":"reference";
-    composerUpload(kind==="selfie"?"Attach a photo of yourself":"Attach a reference photo",function(){
-      userPhoto(kind); go(o.next);
-    });
+    pendingUpload=null;
+    userPhoto(o.act==="selfie"?"selfie":"reference");
+    go(o.next); return;
+  }
+  userBubble(o.t);
+  if(o.act==="end"){ finish(); return; }
+  if(o.act==="back"){
+    var again=o.back;
+    typing(function(){ botBubble(RESUME[cur]); renderOptions(again); },700);
     return;
   }
-  userBubble(o.t); go(o.next);
+  go(o.next);
 }
 function finish(){
-  composerIdle("Session closes after 30 minutes of silence");
+  closed=true; node=null; optHolder=null; pendingUpload=null;
   sessionTag.textContent="handed off";
   waStatus.textContent="online";
+  composerBar("Message",null);
   var d=el("div","daystamp closed","Bot closed · thread stays open for 24 hours");
   d.style.marginTop="8px";
   thread.appendChild(d); toBottom();
 }
+function showNode(n){
+  node=n; optHolder=null; pendingUpload=null;
+  if(n.tpl) thread.appendChild(el("div","tag-tpl",esc(n.tpl)));
+  waStatus.textContent="typing…";
+  composerBar("Message",null);
+  var text=n.bot.join("\n\n");
+  typing(function(){
+    waStatus.textContent="online";
+    botBubble(text);
+    if(n.cards) cardStrip();
+    var up=null;
+    (n.opts||[]).forEach(function(o){ if(!up && (o.act==="ref"||o.act==="selfie")) up=o; });
+    if(up) pendingUpload={kind:up.act==="selfie"?"selfie":"reference", next:up.next};
+    composerBar(n.input||"Message", up?(up.act==="selfie"?"Attach a photo of yourself":"Attach a reference photo"):null);
+    if(n.opts&&n.opts.length) renderOptions(n);
+    else if(n.end&&!n.input) finish();
+    if(queued){var q=queued; queued=null; delay(function(){processTyped(q);},400);}
+  }, Math.min(1500, 400+text.length*5));
+}
 function go(id){
   var n=P[cur].flow[id]; if(!n) return;
-  if(n.tpl){thread.appendChild(el("div","tag-tpl",esc(n.tpl)));}
-  composerIdle();
-  waStatus.textContent="typing…";
-  var msgs=n.bot.slice();
-  (function next(){
-    if(!msgs.length){
-      waStatus.textContent="online";
-      if(n.cards) cardStrip();
-      if(n.input){
-        composerText(n.input,function(v){userBubble(v); go(n.next);});
-        return;
-      }
-      if(n.end && !n.opts){finish(); return;}
-      if(n.opts) renderOptions(n);
-      return;
-    }
-    var m=msgs.shift();
-    typing(function(){botBubble(m); next();}, Math.min(1100, 320+m.length*7));
-  })();
+  showNode(n);
 }
 function boot(){
   timers.forEach(clearTimeout); timers=[];
   thread.innerHTML=""; cart=0; wish=0; clock=0; auto=false;
+  node=null; optHolder=null; pendingUpload=null; miss=0; closed=false; draft=""; queued=null;
   cartN.textContent="0"; wishN.textContent="0";
   sessionTag.textContent="session open";
   waStatus.textContent=P[cur].status;
@@ -702,15 +781,11 @@ document.getElementById("autoplay").addEventListener("click",function(){
   (function step(){
     if(!auto) return;
     if(thread.querySelector(".closed")){auto=false; btn.innerHTML="&#9654; Auto-play"; return;}
-    var b=thread.querySelector(".btns button:not(:disabled), .lb-row:not(:disabled)");
-    var up=document.getElementById("up"), ti=document.getElementById("ti");
+    var b=thread.querySelector(".btns button:not(:disabled)");
+    var ti=document.getElementById("ti");
     if(b){idle=0; b.click();}
-    else if(up){idle=0; up.click();}
-    else if(ti){idle=0;
-      ti.value = cur==="genz" ? "something lightweight, i stare at a screen all day"
-               : cur==="pro" ? "9-10 hours of screen time, and I drive at night"
-               : "something light, my current pair hurts behind the ears";
-      document.getElementById("sb").click();}
+    else if(ti && node && node.input){idle=0;
+      ti.value=SAMPLE[cur]; document.getElementById("sb").click();}
     else if(++idle>24){auto=false; btn.innerHTML="&#9654; Auto-play"; return;}
     delay(step, idle?300:1400);
   })();
