@@ -638,7 +638,14 @@ function matchOption(v,opts){
   if(!opts||!opts.length) return null;
   var raw=v.trim();
   if(/^[1-3]$/.test(raw) && opts.length>=+raw) return opts[+raw-1];
-  var a=expand(norm(v)), best=null, bs=0;
+  var plain=norm(v), y;
+  if(/^(yes|yeah|yep|yup|sure|ok|okay|haan|han|ya)( please| thanks| thank you)?$/.test(plain)){
+    y=opts.filter(function(o){return /^yes\b/.test(norm(o.t));})[0]; if(y) return y;
+  }
+  if(/^(no|nope|nah)( please| thanks| thank you| thats fine| im good)?$/.test(plain)){
+    y=opts.filter(function(o){return /^no\b/.test(norm(o.t));})[0]; if(y) return y;
+  }
+  var a=expand(plain), best=null, bs=0;
   opts.forEach(function(o){
     var b=norm(o.t), s=0;
     if(!b) return;
@@ -650,7 +657,17 @@ function matchOption(v,opts){
     }
     if(s>bs){bs=s;best=o;}
   });
-  return bs>=55?best:null;
+  if(bs>=55) return best;
+  // a keyword that belongs to exactly one option is enough on its own
+  if(/\b(not|dont|don t|never|other than)\b/.test(plain)) return null;
+  var at=a.split(" "), hits=[];
+  opts.forEach(function(o){
+    var own=norm(o.t).split(" ").filter(function(w){
+      return w.length>=4 && !opts.some(function(q){return q!==o && norm(q.t).indexOf(w)>=0;});
+    });
+    if(own.some(function(w){return at.indexOf(w)>=0;})) hits.push(o);
+  });
+  return hits.length===1?hits[0]:null;
 }
 function lockOptions(){
   if(!optHolder) return;
@@ -686,7 +703,7 @@ function processTyped(v){
   if(!node) return;
   if(node.input){ lockOptions(); miss=0; go(node.next); return; }
   var o=matchOption(v,node.opts);
-  if(o){ miss=0; lockOptions(); act(o); return; }
+  if(o){ miss=0; lockOptions(); act(o,false); return; }
   if(/\b(human|agent|expert|person|someone|representative|store|call me)\b/i.test(v)){ handoff(); return; }
   miss++;
   if(miss>=2){ handoff(); return; }
@@ -711,15 +728,15 @@ function renderOptions(n){
 function choose(o,holder){
   holder.querySelectorAll("button").forEach(function(b){b.disabled=true;});
   holder.style.opacity=".55"; optHolder=null; miss=0;
-  act(o);
+  act(o,true);
 }
-function act(o){
+function act(o,echo){
   if(o.act==="ref"||o.act==="selfie"){
     pendingUpload=null;
     userPhoto(o.act==="selfie"?"selfie":"reference");
     go(o.next); return;
   }
-  userBubble(o.t);
+  if(echo) userBubble(o.t);
   if(o.act==="end"){ finish(); return; }
   if(o.act==="back"){
     var again=o.back;
