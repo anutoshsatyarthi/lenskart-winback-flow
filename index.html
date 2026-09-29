@@ -771,7 +771,7 @@ function showNode(n){
     if(n.opts&&n.opts.length) renderOptions(n);
     else if(n.end&&!n.input) finish();
     if(queued){var q=queued; queued=null; delay(function(){processTyped(q);},400);}
-  }, Math.min(1500, 400+text.length*5));
+  }, Math.min(2200, 550+text.length*7));
 }
 function go(id){
   var n=P[cur].flow[id]; if(!n) return;
@@ -794,18 +794,28 @@ document.getElementById("autoplay").addEventListener("click",function(){
   var btn=this; auto=!auto;
   btn.innerHTML = auto ? "&#9208; Stop" : "&#9654; Auto-play";
   if(!auto) return;
-  var idle=0;
-  (function step(){
+  var idle=0, DWELL=2600;
+  function stop(){auto=false; btn.innerHTML="&#9654; Auto-play";}
+  function after(fn){ delay(function(){ if(!auto) return; fn(); delay(step,500); }, DWELL); }
+  function step(){
     if(!auto) return;
-    if(thread.querySelector(".closed")){auto=false; btn.innerHTML="&#9654; Auto-play"; return;}
+    if(thread.querySelector(".closed")){stop(); return;}
     var b=thread.querySelector(".btns button:not(:disabled)");
-    var ti=document.getElementById("ti");
-    if(b){idle=0; b.click();}
-    else if(ti && node && node.input){idle=0;
-      ti.value=SAMPLE[cur]; document.getElementById("sb").click();}
-    else if(++idle>24){auto=false; btn.innerHTML="&#9654; Auto-play"; return;}
-    delay(step, idle?300:1400);
-  })();
+    if(b){ idle=0; after(function(){ if(!b.disabled) b.click(); }); return; }
+    if(node && node.input && document.getElementById("ti")){
+      idle=0;
+      after(function(){
+        var t=document.getElementById("ti");
+        if(!t) return;
+        t.value=SAMPLE[cur];
+        document.getElementById("sb").click();
+      });
+      return;
+    }
+    if(++idle>40){stop(); return;}
+    delay(step,400);
+  }
+  step();
 });
 boot();
 })();
